@@ -62,17 +62,12 @@ EOSCRIPT
 
     # Check for paused rebase and inject commit message
     if [ $? -eq 0 ]; then
-      editor_script=$(mktemp)
-      cat > "$editor_script" <<EOF
-#!/bin/bash
-cat <<MSG > "\$1"
-$commit_message
-MSG
-EOF
-      chmod +x "$editor_script"
+      # Write commit message to temp file to preserve formatting
+      msg_file=$(mktemp)
+      printf "%s\n" "$commit_message" > "$msg_file"
 
-      GIT_EDITOR=true git commit --amend -m "$commit_message" >/dev/null 2>&1
-      rm -f "$editor_script"
+      git commit --amend -F "$msg_file" >/dev/null 2>&1
+      rm -f "$msg_file"
 
       if [ -d ".git/rebase-merge" ] || [ -d ".git/rebase-apply" ]; then
         git rebase --continue >/dev/null 2>&1
