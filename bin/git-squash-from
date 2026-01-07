@@ -39,11 +39,11 @@ while true; do
     if [ "$choice" -eq "$i" ]; then
       echo "🔧 Squashing all commits from the root..."
       # For root commit, get all commits from the beginning
-      commit_message=$(git log --oneline --reverse --all | sed '1s/^[^ ]* //; 2,$s/^/* /')
+      commit_message=$(git log --format='%h %B' --reverse --all | awk 'NR==1 {sub(/^[^ ]* /, ""); print; next} /^[0-9a-f]+ / {sub(/^/, "* "); print; next} NF==0 {next} {print}')
       rebase_cmd="git rebase -i --root"
     else
       echo "🔧 Squashing commits from ${base_hash}^ to HEAD..."
-      commit_message=$(git log --oneline --reverse "$base_hash^..HEAD" | sed '1s/^[^ ]* //; 2,$s/^/* /')
+      commit_message=$(git log --format='%h %B' --reverse "$base_hash^..HEAD" | awk 'NR==1 {sub(/^[^ ]* /, ""); print; next} /^[0-9a-f]+ / {sub(/^/, "* "); print; next} NF==0 {next} {print}')
       rebase_cmd="git rebase -i ${base_hash}^"
     fi
 
