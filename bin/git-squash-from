@@ -34,9 +34,18 @@ while true; do
   read choice
   if echo "$choice" | grep -Eq "^[0-9]+$" && [ "$choice" -ge 1 ] && [ "$choice" -le "$i" ]; then
     base_hash=$(echo "${commits[choice]}" | awk '{print substr($1, 1, 7)}')
-    commit_message=$(git log --oneline --reverse "$base_hash^..HEAD" | sed '1s/^[^ ]* //; 2,$s/^/* /')
-
-    echo "🔧 Squashing commits from ${base_hash}^ to HEAD..."
+    
+    # Check if the user wants to squash all commits from the root
+    if [ "$choice" -eq "$i" ]; then
+      echo "🔧 Squashing all commits from the root..."
+      # For root commit, get all commits from the beginning
+      commit_message=$(git log --oneline --reverse --all | sed '1s/^[^ ]* //; 2,$s/^/* /')
+      rebase_cmd="git rebase -i --root"
+    else
+      echo "🔧 Squashing commits from ${base_hash}^ to HEAD..."
+      commit_message=$(git log --oneline --reverse "$base_hash^..HEAD" | sed '1s/^[^ ]* //; 2,$s/^/* /')
+      rebase_cmd="git rebase -i ${base_hash}^"
+    fi
 
     # Create temp script for GIT_SEQUENCE_EDITOR to squash all except the first
     seq_script=$(mktemp)
@@ -45,15 +54,6 @@ while true; do
 sed -i '' '2,$s/^pick /squash /' "$1"
 EOSCRIPT
     chmod +x "$seq_script"
-
-    # Check if the user wants to squash all commits from the root
-    if [ "$choice" -eq "$i" ]; then
-      echo "🔧 Squashing all commits from the root..."
-      rebase_cmd="git rebase -i --root"
-    else
-      echo "🔧 Squashing commits from ${base_hash}^ to HEAD..."
-      rebase_cmd="git rebase -i ${base_hash}^"
-    fi
 
     # Start rebase with interactive squashing
     GIT_SEQUENCE_EDITOR="$seq_script" $rebase_cmd
@@ -64,7 +64,9 @@ EOSCRIPT
     if [ $? -eq 0 ]; then
       # Write commit message to temp file to preserve formatting
       msg_file=$(mktemp)
-      printf "%s\n" "$commit_message" > "$msg_file"
+      cat > "$msg_file" <<EOF
+$commit_message
+EOF
 
       git commit --amend -F "$msg_file" >/dev/null 2>&1
       rm -f "$msg_file"
